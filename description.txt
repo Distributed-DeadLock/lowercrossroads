@@ -1,9 +1,10 @@
-Adds a long road from -Z to +Z to the world, during world-generation.
+Adds a road-grid to the world, during world-generation.
 
-The road partially follows the terrain and tunnels through higher ground otherwise.
-The road materials depend on the environment. 
+Based on the "thelowerroad"-mod.
+The roads partially follows the terrain and tunnels through higher ground otherwise.
+The roads materials depend on the environment. 
 Small amounts of loot can be found in little buildings beside the road.
-Per default the road will be generated at around x = 100.
+
 
 Check the advanced configuration-section of Minetest to change the configurable parameters.
 
