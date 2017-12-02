@@ -901,6 +901,314 @@ function makeroadZ(minp, maxp, seed)
 	end
 end	
 
+function makeroadX(minp, maxp, seed)
+	-- set the base z-position of the road to be in the center of the chunk
+	-- the road will "wiggle" around this value 
+	local centerz = minp.z + math.floor(chunksizeinnodes / 2)
+	-- set the start- and end-point (z-wise) of the road for this chunk
+	local startz = centerz + (math.floor(sinspread * math.sin(minp.x/sinfactor)))
+	local endz = centerz + (math.floor(sinspread * math.sin(maxp.x/sinfactor)))
+	-- preferred direction of the road-shifting : 1(to neg z) or -1(to pos z)
+	local pref_dir_z = (math.max(startz - endz, 1)) / (math.abs(math.max(startz - endz, 1)))
+	-- set the maximum elevation for the road
+	local maxy = maxp.y - road_height
+
+	-- get the voxel manipulation object for the chunk
+	local voxman_o = minetest.get_mapgen_object("voxelmanip")
+	-- get the heightmap object for the chunk
+	local hmap = minetest.get_mapgen_object("heightmap")
+	-- get the heatmap object for the chunk
+	local heatmap = minetest.get_mapgen_object("heatmap")
+	-- if no heatmap is provided use the heightmap as heatmap ;-)
+	if (heatmap == nil) then
+		heatmap = minetest.get_mapgen_object("heightmap")
+	end
+	
+	-- reseed the random function
+	math.randomseed(seed)
+	-- init some vars for position calculation
+	local z, hm_i, y , prev_z, prev_y, preprev_y, test_z, test_y, slices_left, match_i, match_o, match_s, d_i, d_o, d_s, rtype
+	-- will hold list of blocks to be cleared after road construction during tree/plant removal
+	local clearlist
+	-- related to house placement
+	local hashouse = 0 
+	local isstairs = 0
+	local housez, housey, housex, schem_house
+	-- repeat for every x-value stating with the lowest
+	for x = minp.x, maxp.x do
+		match_i = false
+		match_o = false
+		match_s = false
+		d_i = chunksizeinnodes
+		d_o = chunksizeinnodes
+		d_s = chunksizeinnodes
+		slices_left = maxp.x - x
+		-- set first slices pos to be at base elevation and startz
+		if (x == minp.x) then
+			z = startz
+			y = road_base_elevation
+			prev_z = z
+			prev_y = y
+			preprev_y = y
+			rtype = 3
+		else
+		
+		-- check for valid placement position
+		
+			-- test straight foreward
+			test_z = prev_z
+			-- get height at current test position
+			hm_i = (x - minp.x + 1) + (((test_z - minp.z)) * chunksizeinnodes)
+			-- don't go lower than road_base_elevation
+			test_y = math.max(hmap[hm_i], road_base_elevation)
+				
+			-- if straight foreward is a z-pos that can reach endz and 
+			--  can reach road_base_elevation and
+			--  height is flat or only 1 node difference and
+			--  height does not exceed the height-limit
+			if (math.abs(test_z - endz) < (slices_left / road_width)) and
+				(math.abs(test_y - road_base_elevation) < slices_left) and
+				(math.abs(test_y - prev_y) < 2) and
+				(test_y < maxy) then
+				match_s = true
+				-- get distance to ideal sin-line
+				d_s = math.abs((centerz + math.floor(sinspread * math.sin(x/sinfactor))) - test_z)
+			end
+			
+			-- test "outward" position
+			test_z = prev_z + pref_dir_z
+			-- get height at current test position
+			hm_i = (x - minp.x + 1) + (((test_z - minp.z)) * chunksizeinnodes)
+			-- don't go lower than road_base_elevation
+			test_y = math.max(hmap[hm_i], road_base_elevation)
+			-- test again for z-pos one node "outward"
+			if (math.abs(test_z - endz) < (slices_left / road_width)) and
+				(math.abs(test_y - road_base_elevation) < slices_left) and
+				(math.abs(test_y - prev_y) < 2) and
+				(test_y < maxy) then
+				match_o = true
+				-- get distance to ideal sin-line
+				d_o = math.abs((centerz + math.floor(sinspread * math.sin(x/sinfactor))) - test_z)
+			end
+			
+			-- test "inward" position
+			test_z = prev_z - pref_dir_z
+			-- get height at current test position
+			hm_i = (x - minp.x + 1) + (((test_z - minp.z)) * chunksizeinnodes)
+			-- don't go lower than road_base_elevation
+			test_y = math.max(hmap[hm_i], road_base_elevation)
+			-- test again for z-pos one node "inward"
+			if (math.abs(test_z - endz) < (slices_left / road_width)) and
+				(math.abs(test_y - road_base_elevation) < slices_left) and
+				(math.abs(test_y - prev_y) < 2) and
+				(test_y < maxy) then
+				match_i = true
+				-- get distance to ideal sin-line
+				d_i = math.abs((centerz + math.floor(sinspread * math.sin(x/sinfactor))) - test_z)
+			end
+			
+			-- if at least on valid position was found
+			if match_s or match_i or match_o then
+			
+				-- if straight forward is closest to ideal sin-line
+				if match_s and (d_s < d_o) and (d_s < d_i) then
+					z = prev_z
+					hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
+					y = math.max(hmap[hm_i], road_base_elevation)
+				end
+				
+				-- if "outwards" is closest to ideal sin-line
+				if match_o and (d_o < d_s) and (d_o < d_i) then
+					z = prev_z + pref_dir_z
+					hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
+					y = math.max(hmap[hm_i], road_base_elevation)
+				end
+				
+					-- if "inwards" is closest to ideal sin-line
+				if match_i and (d_i < d_s) and (d_i < d_s) then
+					z = prev_z - pref_dir_z
+					hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
+					y = math.max(hmap[hm_i], road_base_elevation)
+				end
+				rtype = 1
+			else
+			-- no valid pos on surface found, tunneling/bridging instead
+			
+				-- set z-pos as close as possible to ideal sin-line
+				if ( prev_z == (centerz + math.floor(sinspread * math.sin(x/sinfactor))) ) then	
+					z = prev_z
+				elseif ( prev_z > (centerz + math.floor(sinspread * math.sin(x/sinfactor))) ) then
+					z = prev_z - 1
+				else
+					z = prev_z + 1
+				end
+				
+				-- set y-pos
+				-- if road is above ground, lower it
+				hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
+				if (prev_y > hmap[hm_i]) or 
+				( minetest.get_node({x=x,y=prev_y,z=z}).name == "air" ) then 
+					y = prev_y - 1
+				else 
+				
+					-- else set to closest to elevation-sin-line
+					test_y = math.floor(math.sin(math.pi * ( (x - minp.x) / chunksizeinnodes ) ) * ((maxy - road_base_elevation) / 2)) + road_base_elevation
+					if ( prev_y == test_y) then
+						y = prev_y
+					elseif (prev_y > test_y) then
+						y = prev_y - 1
+					else
+						y = prev_y + 1
+					end
+				end
+				-- make shure y is not below road base elevation
+				y = math.max(y, road_base_elevation)	
+				rtype = 2
+			end
+			
+		end	
+
+		-- get heat at current pos
+		hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
+		local lheat = heatmap[hm_i]
+		local schem_main, schem_stair_neg, schem_stair_pos, schem_tunnel, schem_road_deco
+		-- assign matrials depending on temperature
+		if (lheat < 20 ) then
+			schem_main = t1road_main
+			schem_stair_neg = t1road_stairs_neg
+			schem_stair_pos = t1road_stairs_pos
+			schem_tunnel = t1road_tunnel
+			schem_road_deco = t1road_deco
+			schem_house = t1road_house
+		elseif (lheat < 50 ) then
+			schem_main = t2road_main
+			schem_stair_neg = t2road_stairs_neg
+			schem_stair_pos = t2road_stairs_pos
+			schem_tunnel = t2road_tunnel
+			schem_road_deco = t2road_deco
+			schem_house = t2road_house
+		elseif (lheat < 80 ) then
+			schem_main = t3road_main
+			schem_stair_neg = t3road_stairs_neg
+			schem_stair_pos = t3road_stairs_pos
+			schem_tunnel = t3road_tunnel
+			schem_road_deco = t3road_deco
+			schem_house = t3road_house
+		else
+			schem_main = t4road_main
+			schem_stair_neg = t4road_stairs_neg
+			schem_stair_pos = t4road_stairs_pos
+			schem_tunnel = t4road_tunnel
+			schem_road_deco = t4road_deco
+			schem_house = t4road_house
+		end
+
+		-- place main road segment
+
+		minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = (y - 2), z = (z - math.floor(road_width/2) - 1) }, schem_main, 90, nil, true)
+		minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = y, z = (z - math.floor(road_width/2)) }, schem_road_deco, 90, nil, true)
+
+		
+		-- straighten out small height-wobble 
+		-- if roadheight of this is the same as two slices before, but not the same as previous slice
+		if (y == preprev_y) and
+		  (y ~= prev_y) then
+			minetest.place_schematic_on_vmanip(voxman_o, { x = (x - 1) , y = (y - 2), z = (z - math.floor(road_width/2) - 1) }, schem_main, 90, nil, true)
+			minetest.place_schematic_on_vmanip(voxman_o, { x = (x - 1) , y = (y + 1), z = (z - math.floor(road_width/2) - 1) }, support_tunnel, 90, nil, true)
+			prev_y = y
+		end
+		
+		
+		-- Replace trees/plants and snow with air
+		-- if road is not below surface or excessive_clearing is turned on
+		if ( ((y - hmap[hm_i]) > -8) or (excessive_clearing == 1) ) then
+			clearlist = minetest.find_nodes_in_area({x = x, y = (y + 1), z = (z - math.floor(road_width/2) - 1) },
+			{x = x , y = maxp.y, z = (z + math.floor(road_width/2) + 1) },
+			{"group:tree", "group:leaves", "group:leafdecay", "group:leafdecay_drop", "group:plant", "group:flora", 
+			 "group:sapling", "default:snow", "default:snowblock", "default:cactus"})
+			for _ , clnode in pairs(clearlist) do
+				minetest.place_schematic_on_vmanip(voxman_o, clnode, air_schem, 90, nil, true)
+			end
+		end
+
+		-- place stairs if road is uneven
+		isstairs = 0
+		if (prev_y < y) then
+			isstairs = 1
+			minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = y, z = (z - math.floor(road_width/2) - 1) }, schem_stair_pos, 90, nil, true)
+		end
+		if (prev_y > y) then
+			isstairs = 1
+			minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = (y + 1), z = (z - math.floor(road_width/2) - 1) }, schem_stair_neg, 90, nil, true)
+		end
+		
+		-- place tunnel if is underground
+		if ( (y - hmap[hm_i]) < -5) and
+		  ( minetest.get_node({x = x, y = (y + 6), z = z}).name ~= "air" ) then
+			minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = y , z = (z - math.floor(road_width/2) - 1) }, schem_tunnel, 90, nil, true)
+			minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = (y + 1) , z = (z - math.floor(road_width/2) - 1) }, light_tunnel, 90, nil, true)
+		end
+
+		-- place deco if on water
+		if ( minetest.get_node({x = x, y = y, z = z}).name == "default:water_source" ) then
+			minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = (y - 1), z = (z - math.floor(road_width/2) - 1) }, road_water, 90, nil, true)
+		end
+		
+		-- place street light
+		if ( math.random(1, 80) > 78 ) then
+			minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = (y + 1), z = (z - math.floor(road_width/2) - 1) }, road_light, 90, nil, true)
+		end
+		
+		-- place roadside house
+		if ( (slices_left == 3) and ((y - hmap[hm_i]) < house_bbh) and 
+		  (prev_z <= z) and ( isstairs == 0) and
+		  (hmap[((x - minp.x) + (((z - minp.z + 5)) * chunksizeinnodes))] - y) > -1)then
+			hashouse = 1
+			housex = (x - 2)
+			housey = (y)
+			housez = (z + math.floor(road_width/2) + 1)
+			minetest.place_schematic_on_vmanip(voxman_o, { x = housex , y = housey , z = housez }, schem_house, 270, nil, true)
+		end
+		
+		prev_z = z
+		preprev_y = prev_y
+		prev_y = y
+	end
+	-- put voxel manipulator object on map
+	voxman_o:calc_lighting()
+	voxman_o:write_to_map()
+	-- check for house and update/fill chest
+	if (hashouse == 1) then
+		minetest.place_schematic({ x = housex , y = housey , z = housez }, schem_house, 270, nil, true)
+		minetest.set_node({x = (housex + 2), y = ( housey + 1), z = (housez + 4)}, rbchest)
+		local chestinv = minetest.get_inventory({type="node", pos={x = (housex + 2), y = ( housey + 1), z = (housez + 4)}})
+		-- put in some loot
+		local stack = ItemStack("farming:bread " .. math.random(1, 11))
+		chestinv:add_item("main", stack)
+		stack = ItemStack("default:torch " .. math.random(1, 7))
+		chestinv:add_item("main", stack)
+		stack = ItemStack("default:wood " .. math.random(0, 9))
+		chestinv:add_item("main", stack)
+		stack = ItemStack("default:pick_stone " .. math.random(0, 1))
+		chestinv:add_item("main", stack)
+		stack = ItemStack("default:iron_lump " .. math.random(0, 4))
+		chestinv:add_item("main", stack)
+		stack = ItemStack("default:axe_stone " .. math.random(0, 1))
+		chestinv:add_item("main", stack)
+		stack = ItemStack("default:shovel_stone " .. math.random(0, 1))
+		chestinv:add_item("main", stack)
+		stack = ItemStack("default:sword_stone " .. math.random(0, 1))
+		chestinv:add_item("main", stack)
+		if (math.random(0,50) == 1) then
+			stack = ItemStack("lowercrossroads:collectible_roadbuilder_trophy 1")
+			chestinv:add_item("main", stack)
+			print(os.date() .. " : [theloweroad]: collectible placed at: x:" .. (housex + 2) .. " y:" .. (housey + 1) .. " z:" .. (housez + 4) )
+		end
+		
+	end
+end	
+
+
 -- -- the road building callback-function -- called upon world generation once per chunk
 
 minetest.register_on_generated(function(minp, maxp, seed)
@@ -911,6 +1219,10 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	
 	if ( ((math.floor(minp.x/chunksizeinnodes)) % gridchunks) == 0 ) then 	
 		makeroadZ(minp, maxp, seed)
+	end
+	
+		if ( ((math.floor(minp.z/chunksizeinnodes)) % gridchunks) == 0 ) then 	
+		makeroadX(minp, maxp, seed)
 	end
 end	
 )
