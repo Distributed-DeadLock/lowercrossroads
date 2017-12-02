@@ -1,35 +1,33 @@
--- thelowerroad -- by D.Lock
+-- lowercrossroads -- by D.Lock
 -- a minetest mod that adds a long road from -Z to +Z to the world, during world-generation.
 -- dependencies : default stairs farming
 -- ----------------------------------------------------------------------------
 -- Config Section ---
 
--- the position on the x axis, the road is placed at (in nodes)
--- this actually just selects the chunks the road is placed in,
---  actual placement is near the center (x-wise) of the selected chunk
--- default: 100
-local axisx = tonumber(minetest.setting_get("thelowerroad.axisx")) or 100
+-- the distance in chunks between roads, defining the gridsize
+-- default: 3
+local gridchunks = tonumber(minetest.setting_get("lowercrossroads.gridchunks")) or 3
 --- defining the road wobble
 -- the factor x-pos is divided by, before taking the sinus
 -- values larger than the chunksize will stretch out the wobble
 --  values smaller than chunksize produce varying results depending on the resonance with chunksize 
 -- default: 62
-local sinfactor = tonumber(minetest.setting_get("thelowerroad.sinfactor")) or 62
+local sinfactor = tonumber(minetest.setting_get("lowercrossroads.sinfactor")) or 62
 -- the result of sin(x-pos / sinfactor) is multiplied by this
 -- the bigger the value, the bigger the wobble
 --  values bigger than (chunksize/2)-roadwith will break the mod. 20 is a safe value
 -- default: 30
-local sinspread = tonumber(minetest.setting_get("thelowerroad.sinspread")) or 30
+local sinspread = tonumber(minetest.setting_get("lowercrossroads.sinspread")) or 30
 -- affects the rareness of house generation
 -- setting this to 0 will create houses one the ground
 -- larger values create houses only if the road is underground 
 -- default: 5
-local house_rareness = tonumber(minetest.setting_get("thelowerroad.house_rareness")) or 5
+local house_rareness = tonumber(minetest.setting_get("lowercrossroads.house_rareness")) or 5
 -- if the trees are getting cleared out if the road is underground
 -- if set to 1, all trees above the road will be removed
 -- even if the road is currently underground
 -- if set to 0, trees are only cleared if neccesary
-local excessive_clearing = tonumber(minetest.setting_get("thelowerroad.excessive_clearing")) or 0
+local excessive_clearing = tonumber(minetest.setting_get("lowercrossroads.excessive_clearing")) or 0
 
 -- the material the road is build of
 --- main material
@@ -73,7 +71,7 @@ local rbwt1 = { name = "default:tree", param2 = 9, force_place = true, prob = 25
 -- ----------------------------------------------------------------------------
 -- node roadbuilders trophy - not craftable
 -- a rare loot-object - rarely found in roadside buidlings
-minetest.register_node("thelowerroad:collectible_roadbuilder_trophy", {
+minetest.register_node("lowercrossroads:collectible_roadbuilder_trophy", {
 	description = "The Lower Road - Roadbuilders Trophy - Collectible",
 	is_ground_content = false,
 	sunlight_propagates = true,
@@ -594,18 +592,9 @@ local t4road_house = {
 	}
 }
 
--- -- the road building callback-function -- called upon world generation once per chunk
+-- -- road building functions
 
-minetest.register_on_generated(function(minp, maxp, seed)
-	-- if the chunk does not contain the x-position the road should be at, exit and do nothing.
-	if not ( (minp.x < axisx) and (maxp.x > axisx) ) then
-		return
-	end
-	-- if the chunk does not contain the y-position the road should be at, exit and do nothing.
-	if not ( (minp.y < road_base_elevation) and (maxp.y > road_base_elevation) ) then
-		return
-	end
-	
+function makeroadZ(minp, maxp, seed)
 	-- set the base x-position of the road to be in the center of the chunk
 	-- the road will "wiggle" around this value 
 	local centerx = minp.x + math.floor(chunksizeinnodes / 2)
@@ -904,11 +893,24 @@ minetest.register_on_generated(function(minp, maxp, seed)
 		stack = ItemStack("default:sword_stone " .. math.random(0, 1))
 		chestinv:add_item("main", stack)
 		if (math.random(0,50) == 1) then
-			stack = ItemStack("thelowerroad:collectible_roadbuilder_trophy 1")
+			stack = ItemStack("lowercrossroads:collectible_roadbuilder_trophy 1")
 			chestinv:add_item("main", stack)
 			print(os.date() .. " : [theloweroad]: collectible placed at: x:" .. (housex + 4) .. " y:" .. (housey + 1) .. " z:" .. (housez + 2) )
 		end
 		
+	end
+end	
+
+-- -- the road building callback-function -- called upon world generation once per chunk
+
+minetest.register_on_generated(function(minp, maxp, seed)
+	-- if the chunk does not contain the y-position the road should be at, exit and do nothing.
+	if not ( (minp.y < road_base_elevation) and (maxp.y > road_base_elevation) ) then
+		return
+	end
+	
+	if ( ((math.floor(minp.x/chunksizeinnodes)) % gridchunks) == 0 ) then 	
+		makeroadZ(minp, maxp, seed)
 	end
 end	
 )
