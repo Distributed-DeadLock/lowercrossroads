@@ -2030,7 +2030,7 @@ function makeroadcross(minp, maxp, seed)
 	end
 	
 	-- clear intersection area
-	clearlist = minetest.find_nodes_in_area({x = (intersectx - math.floor(road_width/2) - 2), y = (y + 2), z = (intersectz - math.floor(road_width/2) - 2) },
+	clearlist = minetest.find_nodes_in_area({x = (intersectx - math.floor(road_width/2) - 2), y = (intersecty + 3), z = (intersectz - math.floor(road_width/2) - 2) },
 			{x = (intersectx + math.floor(road_width/2) + 2) , y = maxp.y, z = (intersectz + math.floor(road_width/2) + 2) },
 			{"group:tree", "group:leaves", "group:leafdecay", "group:leafdecay_drop", "group:plant", "group:flora", 
 			 "group:sapling", "default:snow", "default:snowblock", "default:cactus"})
