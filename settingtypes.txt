@@ -26,3 +26,8 @@ lowercrossroads.excessive_clearing (Excessive tree-clearing) int 0 0 1
 # road base elevation
 # in blocks above sea-level
 lowercrossroads.roadelevation (road base elevation above sealevel) int 0 0 20
+
+# if roads are built over deep water
+# water deeper than one node is deep
+# 1 = yes // 0 = no
+lowercrossroads.waterroads (if roads are built on water) int 1 0 1

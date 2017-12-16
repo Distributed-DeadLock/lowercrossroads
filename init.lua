@@ -31,6 +31,9 @@ local excessive_clearing = tonumber(minetest.setting_get("lowercrossroads.excess
 -- road base elevation
 -- in blocks above sea-level
 local elevation_offset = (minetest.setting_get("lowercrossroads.roadelevation")) or 0
+-- don't place on deep water
+-- 1 to place --- 0 to not place
+local water_roads = (minetest.setting_get("lowercrossroads.waterroads")) or 1
 
 -- the material the road is build of
 --- main material
@@ -827,6 +830,7 @@ local t4road_house = {
 
 -- -- road building functions
 
+
 function makeroadZ(minp, maxp, seed)
 	-- set the base x-position of the road to be in the center of the chunk
 	-- the road will "wiggle" around this value 
@@ -995,108 +999,110 @@ function makeroadZ(minp, maxp, seed)
 			
 		end	
 
-		-- get heat at current pos
-		hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
-		local lheat = heatmap[hm_i]
-		local schem_main, schem_stair_neg, schem_stair_pos, schem_tunnel, schem_road_deco
-		-- assign matrials depending on temperature
-		if (lheat < 20 ) then
-			schem_main = t1road_main
-			schem_stair_neg = t1road_stairs_neg
-			schem_stair_pos = t1road_stairs_pos
-			schem_tunnel = t1road_tunnel
-			schem_road_deco = t1road_deco
-			schem_house = t1road_house
-		elseif (lheat < 50 ) then
-			schem_main = t2road_main
-			schem_stair_neg = t2road_stairs_neg
-			schem_stair_pos = t2road_stairs_pos
-			schem_tunnel = t2road_tunnel
-			schem_road_deco = t2road_deco
-			schem_house = t2road_house
-		elseif (lheat < 80 ) then
-			schem_main = t3road_main
-			schem_stair_neg = t3road_stairs_neg
-			schem_stair_pos = t3road_stairs_pos
-			schem_tunnel = t3road_tunnel
-			schem_road_deco = t3road_deco
-			schem_house = t3road_house
-		else
-			schem_main = t4road_main
-			schem_stair_neg = t4road_stairs_neg
-			schem_stair_pos = t4road_stairs_pos
-			schem_tunnel = t4road_tunnel
-			schem_road_deco = t4road_deco
-			schem_house = t4road_house
-		end
+		if (( minetest.get_node({x=x,y=(waterlevel),z=z}).name ~= "default:water_source" ) or
+			  (water_roads == 1)) then
+			-- get heat at current pos
+			hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
+			local lheat = heatmap[hm_i]
+			local schem_main, schem_stair_neg, schem_stair_pos, schem_tunnel, schem_road_deco
+			-- assign matrials depending on temperature
+			if (lheat < 20 ) then
+				schem_main = t1road_main
+				schem_stair_neg = t1road_stairs_neg
+				schem_stair_pos = t1road_stairs_pos
+				schem_tunnel = t1road_tunnel
+				schem_road_deco = t1road_deco
+				schem_house = t1road_house
+			elseif (lheat < 50 ) then
+				schem_main = t2road_main
+				schem_stair_neg = t2road_stairs_neg
+				schem_stair_pos = t2road_stairs_pos
+				schem_tunnel = t2road_tunnel
+				schem_road_deco = t2road_deco
+				schem_house = t2road_house
+			elseif (lheat < 80 ) then
+				schem_main = t3road_main
+				schem_stair_neg = t3road_stairs_neg
+				schem_stair_pos = t3road_stairs_pos
+				schem_tunnel = t3road_tunnel
+				schem_road_deco = t3road_deco
+				schem_house = t3road_house
+			else
+				schem_main = t4road_main
+				schem_stair_neg = t4road_stairs_neg
+				schem_stair_pos = t4road_stairs_pos
+				schem_tunnel = t4road_tunnel
+				schem_road_deco = t4road_deco
+				schem_house = t4road_house
+			end
 
-		-- place main road segment
+			-- place main road segment
 
-		minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = (y - 2), z = z }, schem_main, 0, nil, true)
-		minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2)) , y = y, z = z }, schem_road_deco, 0, nil, true)
+			minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = (y - 2), z = z }, schem_main, 0, nil, true)
+			minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2)) , y = y, z = z }, schem_road_deco, 0, nil, true)
 
-		
-		-- straighten out small height-wobble 
-		-- if roadheight of this is the same as two slices before, but not the same as previous slice
-		if (y == preprev_y) and
-		  (y ~= prev_y) then
-			minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = (y - 2), z = (z - 1) }, schem_main, 0, nil, true)
-			minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = (y + 1), z = (z - 1) }, support_tunnel, 0, nil, true)
-			prev_y = y
-		end
-		
-		
-		-- Replace trees/plants and snow with air
-		-- if road is not below surface or excessive_clearing is turned on
-		if ( ((y - hmap[hm_i]) > -8) or (excessive_clearing == 1) ) then
-			clearlist = minetest.find_nodes_in_area({x = (x - math.floor(road_width/2) - 1), y = (y + 1), z = z },
-			{x = (x + math.floor(road_width/2) + 1) , y = maxp.y, z = z },
-			{"group:tree", "group:leaves", "group:leafdecay", "group:leafdecay_drop", "group:plant", "group:flora", 
-			 "group:sapling", "default:snow", "default:snowblock", "default:cactus"})
-			for _ , clnode in pairs(clearlist) do
-				minetest.place_schematic_on_vmanip(voxman_o, clnode, air_schem, 0, nil, true)
+			
+			-- straighten out small height-wobble 
+			-- if roadheight of this is the same as two slices before, but not the same as previous slice
+			if (y == preprev_y) and
+			  (y ~= prev_y) then
+				minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = (y - 2), z = (z - 1) }, schem_main, 0, nil, true)
+				minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = (y + 1), z = (z - 1) }, support_tunnel, 0, nil, true)
+				prev_y = y
+			end
+			
+			
+			-- Replace trees/plants and snow with air
+			-- if road is not below surface or excessive_clearing is turned on
+			if ( ((y - hmap[hm_i]) > -8) or (excessive_clearing == 1) ) then
+				clearlist = minetest.find_nodes_in_area({x = (x - math.floor(road_width/2) - 1), y = (y + 1), z = z },
+				{x = (x + math.floor(road_width/2) + 1) , y = maxp.y, z = z },
+				{"group:tree", "group:leaves", "group:leafdecay", "group:leafdecay_drop", "group:plant", "group:flora", 
+				 "group:sapling", "default:snow", "default:snowblock", "default:cactus"})
+				for _ , clnode in pairs(clearlist) do
+					minetest.place_schematic_on_vmanip(voxman_o, clnode, air_schem, 0, nil, true)
+				end
+			end
+
+			-- place stairs if road is uneven
+			isstairs = 0
+			if (prev_y < y) then
+				isstairs = 1
+				minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = y, z = z }, schem_stair_pos, 0, nil, true)
+			end
+			if (prev_y > y) then
+				isstairs = 1
+				minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = (y + 1), z = z }, schem_stair_neg, 0, nil, true)
+			end
+			
+			-- place tunnel if is underground
+			if ( (y - hmap[hm_i]) < -5) and
+			  ( minetest.get_node({x = x, y = (y + 6), z = z}).name ~= "air" ) then
+				minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = y , z = z }, schem_tunnel, 0, nil, true)
+				minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = (y + 1) , z = z }, light_tunnel, 0, nil, true)
+			end
+
+			-- place deco if on water
+			if ( minetest.get_node({x = x, y = y, z = z}).name == "default:water_source" ) then
+				minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = (y - 1), z = z }, road_water, 0, nil, true)
+			end
+			
+			-- place street light
+			if ( math.random(1, 80) > 78 ) then
+				minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = (y + 1), z = z }, road_light, 0, nil, true)
+			end
+			
+			-- place roadside house
+			if ( (slices_left == 3) and ((y - hmap[hm_i]) < house_bbh) and 
+			  (prev_x <= x) and ( isstairs == 0) and
+			  (hmap[((x - minp.x + 5) + (((z - minp.z)) * chunksizeinnodes))] - y) > -1)then
+				hashouse = 1
+				housex = (x + math.floor(road_width/2) + 1)
+				housey = (y)
+				housez = (z - 2)
+				minetest.place_schematic_on_vmanip(voxman_o, { x = housex , y = housey , z = housez }, schem_house, 0, nil, true)
 			end
 		end
-
-		-- place stairs if road is uneven
-		isstairs = 0
-		if (prev_y < y) then
-			isstairs = 1
-			minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = y, z = z }, schem_stair_pos, 0, nil, true)
-		end
-		if (prev_y > y) then
-			isstairs = 1
-			minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = (y + 1), z = z }, schem_stair_neg, 0, nil, true)
-		end
-		
-		-- place tunnel if is underground
-		if ( (y - hmap[hm_i]) < -5) and
-		  ( minetest.get_node({x = x, y = (y + 6), z = z}).name ~= "air" ) then
-			minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = y , z = z }, schem_tunnel, 0, nil, true)
-			minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = (y + 1) , z = z }, light_tunnel, 0, nil, true)
-		end
-
-		-- place deco if on water
-		if ( minetest.get_node({x = x, y = y, z = z}).name == "default:water_source" ) then
-			minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = (y - 1), z = z }, road_water, 0, nil, true)
-		end
-		
-		-- place street light
-		if ( math.random(1, 80) > 78 ) then
-			minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = (y + 1), z = z }, road_light, 0, nil, true)
-		end
-		
-		-- place roadside house
-		if ( (slices_left == 3) and ((y - hmap[hm_i]) < house_bbh) and 
-		  (prev_x <= x) and ( isstairs == 0) and
-		  (hmap[((x - minp.x + 5) + (((z - minp.z)) * chunksizeinnodes))] - y) > -1)then
-			hashouse = 1
-			housex = (x + math.floor(road_width/2) + 1)
-			housey = (y)
-			housez = (z - 2)
-			minetest.place_schematic_on_vmanip(voxman_o, { x = housex , y = housey , z = housez }, schem_house, 0, nil, true)
-		end
-		
 		prev_x = x
 		preprev_y = prev_y
 		prev_y = y
@@ -1303,106 +1309,110 @@ function makeroadX(minp, maxp, seed)
 			
 		end	
 
-		-- get heat at current pos
-		hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
-		local lheat = heatmap[hm_i]
-		local schem_main, schem_stair_neg, schem_stair_pos, schem_tunnel, schem_road_deco
-		-- assign matrials depending on temperature
-		if (lheat < 20 ) then
-			schem_main = t1road_main
-			schem_stair_neg = t1road_stairs_neg
-			schem_stair_pos = t1road_stairs_pos
-			schem_tunnel = t1road_tunnel
-			schem_road_deco = t1road_deco
-			schem_house = t1road_house
-		elseif (lheat < 50 ) then
-			schem_main = t2road_main
-			schem_stair_neg = t2road_stairs_neg
-			schem_stair_pos = t2road_stairs_pos
-			schem_tunnel = t2road_tunnel
-			schem_road_deco = t2road_deco
-			schem_house = t2road_house
-		elseif (lheat < 80 ) then
-			schem_main = t3road_main
-			schem_stair_neg = t3road_stairs_neg
-			schem_stair_pos = t3road_stairs_pos
-			schem_tunnel = t3road_tunnel
-			schem_road_deco = t3road_deco
-			schem_house = t3road_house
-		else
-			schem_main = t4road_main
-			schem_stair_neg = t4road_stairs_neg
-			schem_stair_pos = t4road_stairs_pos
-			schem_tunnel = t4road_tunnel
-			schem_road_deco = t4road_deco
-			schem_house = t4road_house
-		end
-
-		-- place main road segment
-
-		minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = (y - 2), z = (z - math.floor(road_width/2) - 1) }, schem_main, 90, nil, true)
-		minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = y, z = (z - math.floor(road_width/2)) }, schem_road_deco, 90, nil, true)
-
 		
-		-- straighten out small height-wobble 
-		-- if roadheight of this is the same as two slices before, but not the same as previous slice
-		if (y == preprev_y) and
-		  (y ~= prev_y) then
-			minetest.place_schematic_on_vmanip(voxman_o, { x = (x - 1) , y = (y - 2), z = (z - math.floor(road_width/2) - 1) }, schem_main, 90, nil, true)
-			minetest.place_schematic_on_vmanip(voxman_o, { x = (x - 1) , y = (y + 1), z = (z - math.floor(road_width/2) - 1) }, support_tunnel, 90, nil, true)
-			prev_y = y
-		end
-		
-		
-		-- Replace trees/plants and snow with air
-		-- if road is not below surface or excessive_clearing is turned on
-		if ( ((y - hmap[hm_i]) > -8) or (excessive_clearing == 1) ) then
-			clearlist = minetest.find_nodes_in_area({x = x, y = (y + 1), z = (z - math.floor(road_width/2) - 1) },
-			{x = x , y = maxp.y, z = (z + math.floor(road_width/2) + 1) },
-			{"group:tree", "group:leaves", "group:leafdecay", "group:leafdecay_drop", "group:plant", "group:flora", 
-			 "group:sapling", "default:snow", "default:snowblock", "default:cactus"})
-			for _ , clnode in pairs(clearlist) do
-				minetest.place_schematic_on_vmanip(voxman_o, clnode, air_schem, 90, nil, true)
+		if (( minetest.get_node({x=x,y=(waterlevel),z=z}).name ~= "default:water_source" ) or
+			  (water_roads == 1)) then
+			-- get heat at current pos
+			hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
+			local lheat = heatmap[hm_i]
+			local schem_main, schem_stair_neg, schem_stair_pos, schem_tunnel, schem_road_deco
+			-- assign matrials depending on temperature
+			if (lheat < 20 ) then
+				schem_main = t1road_main
+				schem_stair_neg = t1road_stairs_neg
+				schem_stair_pos = t1road_stairs_pos
+				schem_tunnel = t1road_tunnel
+				schem_road_deco = t1road_deco
+				schem_house = t1road_house
+			elseif (lheat < 50 ) then
+				schem_main = t2road_main
+				schem_stair_neg = t2road_stairs_neg
+				schem_stair_pos = t2road_stairs_pos
+				schem_tunnel = t2road_tunnel
+				schem_road_deco = t2road_deco
+				schem_house = t2road_house
+			elseif (lheat < 80 ) then
+				schem_main = t3road_main
+				schem_stair_neg = t3road_stairs_neg
+				schem_stair_pos = t3road_stairs_pos
+				schem_tunnel = t3road_tunnel
+				schem_road_deco = t3road_deco
+				schem_house = t3road_house
+			else
+				schem_main = t4road_main
+				schem_stair_neg = t4road_stairs_neg
+				schem_stair_pos = t4road_stairs_pos
+				schem_tunnel = t4road_tunnel
+				schem_road_deco = t4road_deco
+				schem_house = t4road_house
 			end
-		end
 
-		-- place stairs if road is uneven
-		isstairs = 0
-		if (prev_y < y) then
-			isstairs = 1
-			minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = y, z = (z - math.floor(road_width/2) - 1) }, schem_stair_pos, 90, nil, true)
-		end
-		if (prev_y > y) then
-			isstairs = 1
-			minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = (y + 1), z = (z - math.floor(road_width/2) - 1) }, schem_stair_neg, 90, nil, true)
-		end
-		
-		-- place tunnel if is underground
-		if ( (y - hmap[hm_i]) < -5) and
-		  ( minetest.get_node({x = x, y = (y + 6), z = z}).name ~= "air" ) then
-			minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = y , z = (z - math.floor(road_width/2) - 1) }, schem_tunnel, 90, nil, true)
-			minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = (y + 1) , z = (z - math.floor(road_width/2) - 1) }, light_tunnel, 90, nil, true)
-		end
+			-- place main road segment
 
-		-- place deco if on water
-		if ( minetest.get_node({x = x, y = y, z = z}).name == "default:water_source" ) then
-			minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = (y - 1), z = (z - math.floor(road_width/2) - 1) }, road_water, 90, nil, true)
-		end
-		
-		-- place street light
-		if ( math.random(1, 80) > 78 ) then
-			minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = (y + 1), z = (z - math.floor(road_width/2) - 1) }, road_light, 90, nil, true)
-		end
-		
-		-- place roadside house
-		if ( (slices_left == 3) and ((y - hmap[hm_i]) < house_bbh) and 
-		  (prev_z <= z) and ( isstairs == 0) and
-		  (hmap[((x - minp.x) + (((z - minp.z + 5)) * chunksizeinnodes))] - y) > -1)then
-			hashouse = 1
-			housex = (x - 2)
-			housey = (y)
-			housez = (z + math.floor(road_width/2) + 1)
-			minetest.place_schematic_on_vmanip(voxman_o, { x = housex , y = housey , z = housez }, schem_house, 270, nil, true)
+			minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = (y - 2), z = (z - math.floor(road_width/2) - 1) }, schem_main, 90, nil, true)
+			minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = y, z = (z - math.floor(road_width/2)) }, schem_road_deco, 90, nil, true)
+
+			
+			-- straighten out small height-wobble 
+			-- if roadheight of this is the same as two slices before, but not the same as previous slice
+			if (y == preprev_y) and
+			  (y ~= prev_y) then
+				minetest.place_schematic_on_vmanip(voxman_o, { x = (x - 1) , y = (y - 2), z = (z - math.floor(road_width/2) - 1) }, schem_main, 90, nil, true)
+				minetest.place_schematic_on_vmanip(voxman_o, { x = (x - 1) , y = (y + 1), z = (z - math.floor(road_width/2) - 1) }, support_tunnel, 90, nil, true)
+				prev_y = y
+			end
+			
+			
+			-- Replace trees/plants and snow with air
+			-- if road is not below surface or excessive_clearing is turned on
+			if ( ((y - hmap[hm_i]) > -8) or (excessive_clearing == 1) ) then
+				clearlist = minetest.find_nodes_in_area({x = x, y = (y + 1), z = (z - math.floor(road_width/2) - 1) },
+				{x = x , y = maxp.y, z = (z + math.floor(road_width/2) + 1) },
+				{"group:tree", "group:leaves", "group:leafdecay", "group:leafdecay_drop", "group:plant", "group:flora", 
+				 "group:sapling", "default:snow", "default:snowblock", "default:cactus"})
+				for _ , clnode in pairs(clearlist) do
+					minetest.place_schematic_on_vmanip(voxman_o, clnode, air_schem, 90, nil, true)
+				end
+			end
+
+			-- place stairs if road is uneven
+			isstairs = 0
+			if (prev_y < y) then
+				isstairs = 1
+				minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = y, z = (z - math.floor(road_width/2) - 1) }, schem_stair_pos, 90, nil, true)
+			end
+			if (prev_y > y) then
+				isstairs = 1
+				minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = (y + 1), z = (z - math.floor(road_width/2) - 1) }, schem_stair_neg, 90, nil, true)
+			end
+			
+			-- place tunnel if is underground
+			if ( (y - hmap[hm_i]) < -5) and
+			  ( minetest.get_node({x = x, y = (y + 6), z = z}).name ~= "air" ) then
+				minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = y , z = (z - math.floor(road_width/2) - 1) }, schem_tunnel, 90, nil, true)
+				minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = (y + 1) , z = (z - math.floor(road_width/2) - 1) }, light_tunnel, 90, nil, true)
+			end
+
+			-- place deco if on water
+			if ( minetest.get_node({x = x, y = y, z = z}).name == "default:water_source" ) then
+				minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = (y - 1), z = (z - math.floor(road_width/2) - 1) }, road_water, 90, nil, true)
+			end
+			
+			-- place street light
+			if ( math.random(1, 80) > 78 ) then
+				minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = (y + 1), z = (z - math.floor(road_width/2) - 1) }, road_light, 90, nil, true)
+			end
+			
+			-- place roadside house
+			if ( (slices_left == 3) and ((y - hmap[hm_i]) < house_bbh) and 
+			  (prev_z <= z) and ( isstairs == 0) and
+			  (hmap[((x - minp.x) + (((z - minp.z + 5)) * chunksizeinnodes))] - y) > -1)then
+				hashouse = 1
+				housex = (x - 2)
+				housey = (y)
+				housez = (z + math.floor(road_width/2) + 1)
+				minetest.place_schematic_on_vmanip(voxman_o, { x = housex , y = housey , z = housez }, schem_house, 270, nil, true)
+			end
 		end
 		
 		prev_z = z
@@ -1524,8 +1534,11 @@ function makeroadcross(minp, maxp, seed)
 			schem_intersect = t4_intersect
 		end
 	--place intersection
-	minetest.place_schematic_on_vmanip(voxman_o,{ x = (intersectx - math.floor(road_width/2) - 2) , y = (intersecty - 1) , z = (intersectz - math.floor(road_width/2) - 2) }, schem_intersect, 0, nil, true)
-
+	if (( minetest.get_node({x=intersectx,y=(waterlevel),z=intersectz}).name ~= "default:water_source" ) or
+			  (water_roads == 1)) then
+		minetest.place_schematic_on_vmanip(voxman_o,{ x = (intersectx - math.floor(road_width/2) - 2) , y = (intersecty - 1) , z = (intersectz - math.floor(road_width/2) - 2) }, schem_intersect, 0, nil, true)
+	end
+	
 	
 	-- do the z-road
 	for a = 1, 2 do
@@ -1683,95 +1696,98 @@ function makeroadcross(minp, maxp, seed)
 				
 			end	
 
-			-- get heat at current pos
-			hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
-			local lheat = heatmap[hm_i]
-			local schem_main, schem_stair_neg, schem_stair_pos, schem_tunnel, schem_road_deco
-			-- assign matrials depending on temperature
-			if (lheat < 20 ) then
-				schem_main = t1road_main
-				schem_stair_neg = t1road_stairs_neg
-				schem_stair_pos = t1road_stairs_pos
-				schem_tunnel = t1road_tunnel
-				schem_road_deco = t1road_deco
-				
-			elseif (lheat < 50 ) then
-				schem_main = t2road_main
-				schem_stair_neg = t2road_stairs_neg
-				schem_stair_pos = t2road_stairs_pos
-				schem_tunnel = t2road_tunnel
-				schem_road_deco = t2road_deco
-				
-			elseif (lheat < 80 ) then
-				schem_main = t3road_main
-				schem_stair_neg = t3road_stairs_neg
-				schem_stair_pos = t3road_stairs_pos
-				schem_tunnel = t3road_tunnel
-				schem_road_deco = t3road_deco
-				
-			else
-				schem_main = t4road_main
-				schem_stair_neg = t4road_stairs_neg
-				schem_stair_pos = t4road_stairs_pos
-				schem_tunnel = t4road_tunnel
-				schem_road_deco = t4road_deco
-				
-			end
-
-			-- place main road segment
-
-			minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = (y - 2), z = z }, schem_main, 0, nil, true)
-			minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2)) , y = y, z = z }, schem_road_deco, 0, nil, true)
-
-			
-			-- straighten out small height-wobble 
-			-- if roadheight of this is the same as two slices before, but not the same as previous slice
-			if (y == preprev_y) and
-			  (y ~= prev_y) then
-				minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = (y - 2), z = (z - 1) }, schem_main, 0, nil, true)
-				minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = (y + 1), z = (z - 1) }, support_tunnel, 0, nil, true)
-				prev_y = y
-			end
-			
-			
-			-- Replace trees/plants and snow with air
-			-- if road is not below surface or excessive_clearing is turned on
-			if ( ((y - hmap[hm_i]) > -8) or (excessive_clearing == 1) ) then
-				clearlist = minetest.find_nodes_in_area({x = (x - math.floor(road_width/2) - 1), y = (y + 1), z = z },
-				{x = (x + math.floor(road_width/2) + 1) , y = maxp.y, z = z },
-				{"group:tree", "group:leaves", "group:leafdecay", "group:leafdecay_drop", "group:plant", "group:flora", 
-				 "group:sapling", "default:snow", "default:snowblock", "default:cactus"})
-				for _ , clnode in pairs(clearlist) do
-					minetest.place_schematic_on_vmanip(voxman_o, clnode, air_schem, 0, nil, true)
+			if (( minetest.get_node({x=x,y=(waterlevel),z=z}).name ~= "default:water_source" ) or
+			  (water_roads == 1)) then
+				-- get heat at current pos
+				hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
+				local lheat = heatmap[hm_i]
+				local schem_main, schem_stair_neg, schem_stair_pos, schem_tunnel, schem_road_deco
+				-- assign matrials depending on temperature
+				if (lheat < 20 ) then
+					schem_main = t1road_main
+					schem_stair_neg = t1road_stairs_neg
+					schem_stair_pos = t1road_stairs_pos
+					schem_tunnel = t1road_tunnel
+					schem_road_deco = t1road_deco
+					
+				elseif (lheat < 50 ) then
+					schem_main = t2road_main
+					schem_stair_neg = t2road_stairs_neg
+					schem_stair_pos = t2road_stairs_pos
+					schem_tunnel = t2road_tunnel
+					schem_road_deco = t2road_deco
+					
+				elseif (lheat < 80 ) then
+					schem_main = t3road_main
+					schem_stair_neg = t3road_stairs_neg
+					schem_stair_pos = t3road_stairs_pos
+					schem_tunnel = t3road_tunnel
+					schem_road_deco = t3road_deco
+					
+				else
+					schem_main = t4road_main
+					schem_stair_neg = t4road_stairs_neg
+					schem_stair_pos = t4road_stairs_pos
+					schem_tunnel = t4road_tunnel
+					schem_road_deco = t4road_deco
+					
 				end
-			end
 
-			-- place stairs if road is uneven
-			isstairs = 0
-			if (prev_y < y) then
-				isstairs = 1
-				minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = y, z = z }, schem_stair_pos, 0, nil, true)
-			end
-			if (prev_y > y) then
-				isstairs = 1
-				minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = (y + 1), z = z }, schem_stair_neg, 0, nil, true)
-			end
-			
-			-- place tunnel if is underground
-			if ( (y - hmap[hm_i]) < -5) and
-			  ( minetest.get_node({x = x, y = (y + 6), z = z}).name ~= "air" ) then
-				minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = y , z = z }, schem_tunnel, 0, nil, true)
-				minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = (y + 1) , z = z }, light_tunnel, 0, nil, true)
-			end
+				-- place main road segment
 
-			-- place deco if on water
-			if ( minetest.get_node({x = x, y = y, z = z}).name == "default:water_source" ) then
-				minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = (y - 1), z = z }, road_water, 0, nil, true)
-			end
-			
-			-- place street light
-			if ( math.random(1, 80) > 78 ) then
-				minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = (y + 1), z = z }, road_light, 0, nil, true)
+				minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = (y - 2), z = z }, schem_main, 0, nil, true)
+				minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2)) , y = y, z = z }, schem_road_deco, 0, nil, true)
+
+				
+				-- straighten out small height-wobble 
+				-- if roadheight of this is the same as two slices before, but not the same as previous slice
+				if (y == preprev_y) and
+				  (y ~= prev_y) then
+					minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = (y - 2), z = (z - 1) }, schem_main, 0, nil, true)
+					minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = (y + 1), z = (z - 1) }, support_tunnel, 0, nil, true)
+					prev_y = y
+				end
+				
+				
+				-- Replace trees/plants and snow with air
+				-- if road is not below surface or excessive_clearing is turned on
+				if ( ((y - hmap[hm_i]) > -8) or (excessive_clearing == 1) ) then
+					clearlist = minetest.find_nodes_in_area({x = (x - math.floor(road_width/2) - 1), y = (y + 1), z = z },
+					{x = (x + math.floor(road_width/2) + 1) , y = maxp.y, z = z },
+					{"group:tree", "group:leaves", "group:leafdecay", "group:leafdecay_drop", "group:plant", "group:flora", 
+					 "group:sapling", "default:snow", "default:snowblock", "default:cactus"})
+					for _ , clnode in pairs(clearlist) do
+						minetest.place_schematic_on_vmanip(voxman_o, clnode, air_schem, 0, nil, true)
+					end
+				end
+
+				-- place stairs if road is uneven
+				isstairs = 0
+				if (prev_y < y) then
+					isstairs = 1
+					minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = y, z = z }, schem_stair_pos, 0, nil, true)
+				end
+				if (prev_y > y) then
+					isstairs = 1
+					minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = (y + 1), z = z }, schem_stair_neg, 0, nil, true)
+				end
+				
+				-- place tunnel if is underground
+				if ( (y - hmap[hm_i]) < -5) and
+				  ( minetest.get_node({x = x, y = (y + 6), z = z}).name ~= "air" ) then
+					minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = y , z = z }, schem_tunnel, 0, nil, true)
+					minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = (y + 1) , z = z }, light_tunnel, 0, nil, true)
+				end
+
+				-- place deco if on water
+				if ( minetest.get_node({x = x, y = y, z = z}).name == "default:water_source" ) then
+					minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = (y - 1), z = z }, road_water, 0, nil, true)
+				end
+				
+				-- place street light
+				if ( math.random(1, 80) > 78 ) then
+					minetest.place_schematic_on_vmanip(voxman_o, { x = (x - math.floor(road_width/2) - 1) , y = (y + 1), z = z }, road_light, 0, nil, true)
+				end
 			end
 			
 			prev_x = x
@@ -1937,97 +1953,100 @@ function makeroadcross(minp, maxp, seed)
 				
 			end	
 
-			-- get heat at current pos
-			hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
-			local lheat = heatmap[hm_i]
-			local schem_main, schem_stair_neg, schem_stair_pos, schem_tunnel, schem_road_deco
-			-- assign matrials depending on temperature
-			if (lheat < 20 ) then
-				schem_main = t1road_main
-				schem_stair_neg = t1road_stairs_neg
-				schem_stair_pos = t1road_stairs_pos
-				schem_tunnel = t1road_tunnel
-				schem_road_deco = t1road_deco
-				
-			elseif (lheat < 50 ) then
-				schem_main = t2road_main
-				schem_stair_neg = t2road_stairs_neg
-				schem_stair_pos = t2road_stairs_pos
-				schem_tunnel = t2road_tunnel
-				schem_road_deco = t2road_deco
-				
-			elseif (lheat < 80 ) then
-				schem_main = t3road_main
-				schem_stair_neg = t3road_stairs_neg
-				schem_stair_pos = t3road_stairs_pos
-				schem_tunnel = t3road_tunnel
-				schem_road_deco = t3road_deco
-				
-			else
-				schem_main = t4road_main
-				schem_stair_neg = t4road_stairs_neg
-				schem_stair_pos = t4road_stairs_pos
-				schem_tunnel = t4road_tunnel
-				schem_road_deco = t4road_deco
-				
-			end
+			if (( minetest.get_node({x=x,y=(waterlevel),z=z}).name ~= "default:water_source" ) or
+			  (water_roads == 1)) then
+				-- get heat at current pos
+				hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
+				local lheat = heatmap[hm_i]
+				local schem_main, schem_stair_neg, schem_stair_pos, schem_tunnel, schem_road_deco
+				-- assign matrials depending on temperature
+				if (lheat < 20 ) then
+					schem_main = t1road_main
+					schem_stair_neg = t1road_stairs_neg
+					schem_stair_pos = t1road_stairs_pos
+					schem_tunnel = t1road_tunnel
+					schem_road_deco = t1road_deco
+					
+				elseif (lheat < 50 ) then
+					schem_main = t2road_main
+					schem_stair_neg = t2road_stairs_neg
+					schem_stair_pos = t2road_stairs_pos
+					schem_tunnel = t2road_tunnel
+					schem_road_deco = t2road_deco
+					
+				elseif (lheat < 80 ) then
+					schem_main = t3road_main
+					schem_stair_neg = t3road_stairs_neg
+					schem_stair_pos = t3road_stairs_pos
+					schem_tunnel = t3road_tunnel
+					schem_road_deco = t3road_deco
+					
+				else
+					schem_main = t4road_main
+					schem_stair_neg = t4road_stairs_neg
+					schem_stair_pos = t4road_stairs_pos
+					schem_tunnel = t4road_tunnel
+					schem_road_deco = t4road_deco
+					
+				end
 
-		-- place main road segment
+			-- place main road segment
 
-		minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = (y - 2), z = (z - math.floor(road_width/2) - 1) }, schem_main, 90, nil, true)
-		minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = y, z = (z - math.floor(road_width/2)) }, schem_road_deco, 90, nil, true)
+			minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = (y - 2), z = (z - math.floor(road_width/2) - 1) }, schem_main, 90, nil, true)
+			minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = y, z = (z - math.floor(road_width/2)) }, schem_road_deco, 90, nil, true)
 
-		
-		-- straighten out small height-wobble 
-		-- if roadheight of this is the same as two slices before, but not the same as previous slice
-		if (y == preprev_y) and
-		  (y ~= prev_y) then
-			minetest.place_schematic_on_vmanip(voxman_o, { x = (x - 1) , y = (y - 2), z = (z - math.floor(road_width/2) - 1) }, schem_main, 90, nil, true)
-			minetest.place_schematic_on_vmanip(voxman_o, { x = (x - 1) , y = (y + 1), z = (z - math.floor(road_width/2) - 1) }, support_tunnel, 90, nil, true)
-			prev_y = y
-		end
-		
-		
-		-- Replace trees/plants and snow with air
-		-- if road is not below surface or excessive_clearing is turned on
-		if ( ((y - hmap[hm_i]) > -8) or (excessive_clearing == 1) ) then
-			clearlist = minetest.find_nodes_in_area({x = x, y = (y + 1), z = (z - math.floor(road_width/2) - 1) },
-			{x = x , y = maxp.y, z = (z + math.floor(road_width/2) + 1) },
-			{"group:tree", "group:leaves", "group:leafdecay", "group:leafdecay_drop", "group:plant", "group:flora", 
-			 "group:sapling", "default:snow", "default:snowblock", "default:cactus"})
-			for _ , clnode in pairs(clearlist) do
-				minetest.place_schematic_on_vmanip(voxman_o, clnode, air_schem, 90, nil, true)
-			end
-		end
-
-		-- place stairs if road is uneven
-		isstairs = 0
-		if (prev_y < y) then
-			isstairs = 1
-			minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = y, z = (z - math.floor(road_width/2) - 1) }, schem_stair_pos, 90, nil, true)
-		end
-		if (prev_y > y) then
-			isstairs = 1
-			minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = (y + 1), z = (z - math.floor(road_width/2) - 1) }, schem_stair_neg, 90, nil, true)
-		end
-		
-		-- place tunnel if is underground
-		if ( (y - hmap[hm_i]) < -5) and
-		  ( minetest.get_node({x = x, y = (y + 6), z = z}).name ~= "air" ) then
-			minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = y , z = (z - math.floor(road_width/2) - 1) }, schem_tunnel, 90, nil, true)
-			minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = (y + 1) , z = (z - math.floor(road_width/2) - 1) }, light_tunnel, 90, nil, true)
-		end
-
-		-- place deco if on water
-		if ( minetest.get_node({x = x, y = y, z = z}).name == "default:water_source" ) then
-			minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = (y - 1), z = (z - math.floor(road_width/2) - 1) }, road_water, 90, nil, true)
-		end
-		
-		-- place street light
-		if ( math.random(1, 80) > 78 ) then
-			minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = (y + 1), z = (z - math.floor(road_width/2) - 1) }, road_light, 90, nil, true)
-		end
 			
+			-- straighten out small height-wobble 
+			-- if roadheight of this is the same as two slices before, but not the same as previous slice
+			if (y == preprev_y) and
+			  (y ~= prev_y) then
+				minetest.place_schematic_on_vmanip(voxman_o, { x = (x - 1) , y = (y - 2), z = (z - math.floor(road_width/2) - 1) }, schem_main, 90, nil, true)
+				minetest.place_schematic_on_vmanip(voxman_o, { x = (x - 1) , y = (y + 1), z = (z - math.floor(road_width/2) - 1) }, support_tunnel, 90, nil, true)
+				prev_y = y
+			end
+			
+			
+			-- Replace trees/plants and snow with air
+			-- if road is not below surface or excessive_clearing is turned on
+			if ( ((y - hmap[hm_i]) > -8) or (excessive_clearing == 1) ) then
+				clearlist = minetest.find_nodes_in_area({x = x, y = (y + 1), z = (z - math.floor(road_width/2) - 1) },
+				{x = x , y = maxp.y, z = (z + math.floor(road_width/2) + 1) },
+				{"group:tree", "group:leaves", "group:leafdecay", "group:leafdecay_drop", "group:plant", "group:flora", 
+				 "group:sapling", "default:snow", "default:snowblock", "default:cactus"})
+				for _ , clnode in pairs(clearlist) do
+					minetest.place_schematic_on_vmanip(voxman_o, clnode, air_schem, 90, nil, true)
+				end
+			end
+
+			-- place stairs if road is uneven
+			isstairs = 0
+			if (prev_y < y) then
+				isstairs = 1
+				minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = y, z = (z - math.floor(road_width/2) - 1) }, schem_stair_pos, 90, nil, true)
+			end
+			if (prev_y > y) then
+				isstairs = 1
+				minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = (y + 1), z = (z - math.floor(road_width/2) - 1) }, schem_stair_neg, 90, nil, true)
+			end
+			
+			-- place tunnel if is underground
+			if ( (y - hmap[hm_i]) < -5) and
+			  ( minetest.get_node({x = x, y = (y + 6), z = z}).name ~= "air" ) then
+				minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = y , z = (z - math.floor(road_width/2) - 1) }, schem_tunnel, 90, nil, true)
+				minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = (y + 1) , z = (z - math.floor(road_width/2) - 1) }, light_tunnel, 90, nil, true)
+			end
+
+			-- place deco if on water
+			if ( minetest.get_node({x = x, y = y, z = z}).name == "default:water_source" ) then
+				minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = (y - 1), z = (z - math.floor(road_width/2) - 1) }, road_water, 90, nil, true)
+			end
+			
+			-- place street light
+			if ( math.random(1, 80) > 78 ) then
+				minetest.place_schematic_on_vmanip(voxman_o, { x = x , y = (y + 1), z = (z - math.floor(road_width/2) - 1) }, road_light, 90, nil, true)
+			end
+		end
+		
 			prev_z = z
 			preprev_y = prev_y
 			prev_y = y
