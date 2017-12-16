@@ -28,6 +28,9 @@ local house_rareness = tonumber(minetest.setting_get("lowercrossroads.house_rare
 -- even if the road is currently underground
 -- if set to 0, trees are only cleared if neccesary
 local excessive_clearing = tonumber(minetest.setting_get("lowercrossroads.excessive_clearing")) or 0
+-- road base elevation
+-- in blocks above sea-level
+local elevation_offset = (minetest.setting_get("lowercrossroads.roadelevation")) or 0
 
 -- the material the road is build of
 --- main material
@@ -109,7 +112,8 @@ local chunksizeinnodes = minetest.setting_get("chunksize") * 16
 -- set the base-level of the road (y-wise)
 -- road will not go below this AND be only generated in the chunk containing this y-position
 -- best be left at water_level
-local road_base_elevation = minetest.setting_get("water_level") + 0
+local road_base_elevation = minetest.setting_get("water_level") + elevation_offset
+local waterlevel = minetest.setting_get("water_level")
 -- the width of the road
 local road_width = 5
 -- the height of the road
@@ -881,8 +885,8 @@ function makeroadZ(minp, maxp, seed)
 			test_x = prev_x
 			-- get height at current test position
 			hm_i = (test_x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
-			-- don't go lower than road_base_elevation
-			test_y = math.max(hmap[hm_i], road_base_elevation)
+			-- don't go lower than waterlevel
+			test_y = math.max(hmap[hm_i], waterlevel)
 				
 			-- if straight foreward is a x-pos that can reach endx and 
 			--  can reach road_base_elevation and
@@ -901,8 +905,8 @@ function makeroadZ(minp, maxp, seed)
 			test_x = prev_x + pref_dir_x
 			-- get height at current test position
 			hm_i = (test_x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
-			-- don't go lower than road_base_elevation
-			test_y = math.max(hmap[hm_i], road_base_elevation)
+			-- don't go lower than waterlevel
+			test_y = math.max(hmap[hm_i], waterlevel)
 			-- test again for x-pos one node "outward"
 			if (math.abs(test_x - endx) < (slices_left / road_width)) and
 				(math.abs(test_y - road_base_elevation) < slices_left) and
@@ -917,8 +921,8 @@ function makeroadZ(minp, maxp, seed)
 			test_x = prev_x - pref_dir_x
 			-- get height at current test position
 			hm_i = (test_x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
-			-- don't go lower than road_base_elevation
-			test_y = math.max(hmap[hm_i], road_base_elevation)
+			-- don't go lower than waterlevel
+			test_y = math.max(hmap[hm_i], waterlevel)
 			-- test again for x-pos one node "inward"
 			if (math.abs(test_x - endx) < (slices_left / road_width)) and
 				(math.abs(test_y - road_base_elevation) < slices_left) and
@@ -936,21 +940,21 @@ function makeroadZ(minp, maxp, seed)
 				if match_s and (d_s < d_o) and (d_s < d_i) then
 					x = prev_x
 					hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
-					y = math.max(hmap[hm_i], road_base_elevation)
+					y = math.max(hmap[hm_i], waterlevel)
 				end
 				
 				-- if "outwards" is closest to ideal sin-line
 				if match_o and (d_o < d_s) and (d_o < d_i) then
 					x = prev_x + pref_dir_x
 					hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
-					y = math.max(hmap[hm_i], road_base_elevation)
+					y = math.max(hmap[hm_i], waterlevel)
 				end
 				
 					-- if "inwards" is closest to ideal sin-line
 				if match_i and (d_i < d_s) and (d_i < d_s) then
 					x = prev_x - pref_dir_x
 					hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
-					y = math.max(hmap[hm_i], road_base_elevation)
+					y = math.max(hmap[hm_i], waterlevel)
 				end
 				rtype = 1
 			else
@@ -968,8 +972,9 @@ function makeroadZ(minp, maxp, seed)
 				-- set y-pos
 				-- if road is above ground, lower it
 				hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
-				if (prev_y > hmap[hm_i]) or 
-				( minetest.get_node({x=x,y=prev_y,z=z}).name == "air" ) then 
+				if (((prev_y > hmap[hm_i]) or 
+				( minetest.get_node({x=x,y=prev_y,z=z}).name == "air" )) and
+				 (math.abs(prev_y - road_base_elevation) < (slices_left + 1))) then 
 					y = prev_y - 1
 				else 
 				
@@ -983,8 +988,8 @@ function makeroadZ(minp, maxp, seed)
 						y = prev_y + 1
 					end
 				end
-				-- make shure y is not below road base elevation
-				y = math.max(y, road_base_elevation)	
+				-- make shure y is not below waterlevel
+				y = math.max(y, waterlevel)	
 				rtype = 2
 			end
 			
@@ -1188,8 +1193,8 @@ function makeroadX(minp, maxp, seed)
 			test_z = prev_z
 			-- get height at current test position
 			hm_i = (x - minp.x + 1) + (((test_z - minp.z)) * chunksizeinnodes)
-			-- don't go lower than road_base_elevation
-			test_y = math.max(hmap[hm_i], road_base_elevation)
+			-- don't go lower than waterlevel
+			test_y = math.max(hmap[hm_i], waterlevel)
 				
 			-- if straight foreward is a z-pos that can reach endz and 
 			--  can reach road_base_elevation and
@@ -1208,8 +1213,8 @@ function makeroadX(minp, maxp, seed)
 			test_z = prev_z + pref_dir_z
 			-- get height at current test position
 			hm_i = (x - minp.x + 1) + (((test_z - minp.z)) * chunksizeinnodes)
-			-- don't go lower than road_base_elevation
-			test_y = math.max(hmap[hm_i], road_base_elevation)
+			-- don't go lower than waterlevel
+			test_y = math.max(hmap[hm_i], waterlevel)
 			-- test again for z-pos one node "outward"
 			if (math.abs(test_z - endz) < (slices_left / road_width)) and
 				(math.abs(test_y - road_base_elevation) < slices_left) and
@@ -1224,8 +1229,8 @@ function makeroadX(minp, maxp, seed)
 			test_z = prev_z - pref_dir_z
 			-- get height at current test position
 			hm_i = (x - minp.x + 1) + (((test_z - minp.z)) * chunksizeinnodes)
-			-- don't go lower than road_base_elevation
-			test_y = math.max(hmap[hm_i], road_base_elevation)
+			-- don't go lower than waterlevel
+			test_y = math.max(hmap[hm_i], waterlevel)
 			-- test again for z-pos one node "inward"
 			if (math.abs(test_z - endz) < (slices_left / road_width)) and
 				(math.abs(test_y - road_base_elevation) < slices_left) and
@@ -1243,21 +1248,21 @@ function makeroadX(minp, maxp, seed)
 				if match_s and (d_s < d_o) and (d_s < d_i) then
 					z = prev_z
 					hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
-					y = math.max(hmap[hm_i], road_base_elevation)
+					y = math.max(hmap[hm_i], waterlevel)
 				end
 				
 				-- if "outwards" is closest to ideal sin-line
 				if match_o and (d_o < d_s) and (d_o < d_i) then
 					z = prev_z + pref_dir_z
 					hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
-					y = math.max(hmap[hm_i], road_base_elevation)
+					y = math.max(hmap[hm_i], waterlevel)
 				end
 				
 					-- if "inwards" is closest to ideal sin-line
 				if match_i and (d_i < d_s) and (d_i < d_s) then
 					z = prev_z - pref_dir_z
 					hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
-					y = math.max(hmap[hm_i], road_base_elevation)
+					y = math.max(hmap[hm_i], waterlevel)
 				end
 				rtype = 1
 			else
@@ -1275,8 +1280,9 @@ function makeroadX(minp, maxp, seed)
 				-- set y-pos
 				-- if road is above ground, lower it
 				hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
-				if (prev_y > hmap[hm_i]) or 
-				( minetest.get_node({x=x,y=prev_y,z=z}).name == "air" ) then 
+				if (((prev_y > hmap[hm_i]) or 
+				( minetest.get_node({x=x,y=prev_y,z=z}).name == "air" )) and
+				 (math.abs(prev_y - road_base_elevation) < (slices_left + 1))) then 
 					y = prev_y - 1
 				else 
 				
@@ -1290,8 +1296,8 @@ function makeroadX(minp, maxp, seed)
 						y = prev_y + 1
 					end
 				end
-				-- make shure y is not below road base elevation
-				y = math.max(y, road_base_elevation)	
+				-- make shure y is not below waterlevel
+				y = math.max(y, waterlevel)	
 				rtype = 2
 			end
 			
@@ -1494,7 +1500,7 @@ function makeroadcross(minp, maxp, seed)
 	-- calc intersection-point y for the two roads
 	-- get height at intersect position
 	hm_i = (intersectx - minp.x + 1) + (((intersectz - minp.z)) * chunksizeinnodes)
-	test_y = math.max(hmap[hm_i], road_base_elevation)
+	test_y = math.max(hmap[hm_i], waterlevel)
 	local intersecty
 	local heightoffset = math.min((intersectx - minp.x),(maxp.x - intersectx),(intersectz - minp.z),(maxp.z - intersectz))
 	if ((test_y <= maxy) and (test_y < (heightoffset + road_base_elevation - 3))) then
@@ -1564,8 +1570,8 @@ function makeroadcross(minp, maxp, seed)
 				test_x = prev_x
 				-- get height at current test position
 				hm_i = (test_x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
-				-- don't go lower than road_base_elevation
-				test_y = math.max(hmap[hm_i], road_base_elevation)
+				-- don't go lower than waterlevel
+				test_y = math.max(hmap[hm_i], waterlevel)
 					
 				-- if straight foreward is a x-pos that can reach endx and 
 				--  can reach endy and
@@ -1584,8 +1590,8 @@ function makeroadcross(minp, maxp, seed)
 				test_x = prev_x + pref_dir_x
 				-- get height at current test position
 				hm_i = (test_x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
-				-- don't go lower than road_base_elevation
-				test_y = math.max(hmap[hm_i], road_base_elevation)
+				-- don't go lower than waterlevel
+				test_y = math.max(hmap[hm_i], waterlevel)
 				-- test again for x-pos one node "outward"
 				if (math.abs(test_x - endx) < (slices_left / road_width)) and
 					(math.abs(test_y - endy) < slices_left) and
@@ -1600,8 +1606,8 @@ function makeroadcross(minp, maxp, seed)
 				test_x = prev_x - pref_dir_x
 				-- get height at current test position
 				hm_i = (test_x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
-				-- don't go lower than road_base_elevation
-				test_y = math.max(hmap[hm_i], road_base_elevation)
+				-- don't go lower than waterlevel
+				test_y = math.max(hmap[hm_i], waterlevel)
 				-- test again for x-pos one node "inward"
 				if (math.abs(test_x - endx) < (slices_left / road_width)) and
 					(math.abs(test_y - endy) < slices_left) and
@@ -1619,27 +1625,26 @@ function makeroadcross(minp, maxp, seed)
 					if match_s and (d_s <= d_o) and (d_s <= d_i) then
 						x = prev_x
 						hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
-						y = math.max(hmap[hm_i], road_base_elevation)
+						y = math.max(hmap[hm_i], waterlevel)
 					end
 					
 					-- if "outwards" is closest to endx
 					if match_o and (d_o < d_s) and (d_o < d_i) then
 						x = prev_x + pref_dir_x
 						hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
-						y = math.max(hmap[hm_i], road_base_elevation)
+						y = math.max(hmap[hm_i], waterlevel)
 					end
 					
 						-- if "inwards" is closest to endx
 					if match_i and (d_i < d_s) and (d_i < d_s) then
 						x = prev_x - pref_dir_x
 						hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
-						y = math.max(hmap[hm_i], road_base_elevation)
+						y = math.max(hmap[hm_i], waterlevel)
 					end
 					rtype = 1
 				else
 				-- no valid pos on surface found, tunneling/bridging instead
 
--- xxx --
 				
 					-- set x-pos as close as possible to endx
 					if ( prev_x < (endx - math.floor(((endx - startx) / (endz - startz)) * slices_left)) ) then	
@@ -1655,7 +1660,8 @@ function makeroadcross(minp, maxp, seed)
 					hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
 					if ( (prev_y > hmap[hm_i]) or 
 					( minetest.get_node({x=x,y=prev_y,z=z}).name == "air" ) ) and
-					( (math.abs(prev_y - endy) + 1) < slices_left ) then 
+					( (math.abs(prev_y - endy) + 1) < slices_left ) and
+					(math.abs(prev_y - road_base_elevation) < (slices_left + 1)) then
 						y = prev_y - 1
 					else 
 					
@@ -1670,8 +1676,8 @@ function makeroadcross(minp, maxp, seed)
 						end
 
 					end
-					-- make shure y is not below road base elevation
-					y = math.max(y, road_base_elevation)	
+					-- make shure y is not below waterlevel
+					y = math.max(y, waterlevel)	
 					rtype = 2
 				end
 				
@@ -1819,8 +1825,8 @@ function makeroadcross(minp, maxp, seed)
 				test_z = prev_z
 				-- get height at current test position
 				hm_i = (x - minp.x + 1) + (((test_z - minp.z)) * chunksizeinnodes)
-				-- don't go lower than road_base_elevation
-				test_y = math.max(hmap[hm_i], road_base_elevation)
+				-- don't go lower than waterlevel
+				test_y = math.max(hmap[hm_i], waterlevel)
 					
 				-- if straight foreward is a x-pos that can reach endx and 
 				--  can reach endy and
@@ -1839,8 +1845,8 @@ function makeroadcross(minp, maxp, seed)
 				test_z = prev_z + pref_dir_z
 				-- get height at current test position
 				hm_i = (x - minp.x + 1) + (((test_z - minp.z)) * chunksizeinnodes)
-				-- don't go lower than road_base_elevation
-				test_y = math.max(hmap[hm_i], road_base_elevation)
+				-- don't go lower than waterlevel
+				test_y = math.max(hmap[hm_i], waterlevel)
 				-- test again for x-pos one node "outward"
 				if (math.abs(test_z - endz) < (slices_left / road_width)) and
 					(math.abs(test_y - endy) < slices_left) and
@@ -1855,8 +1861,8 @@ function makeroadcross(minp, maxp, seed)
 				test_z = prev_z - pref_dir_z
 				-- get height at current test position
 				hm_i = (x - minp.x + 1) + (((test_z - minp.z)) * chunksizeinnodes)
-				-- don't go lower than road_base_elevation
-				test_y = math.max(hmap[hm_i], road_base_elevation)
+				-- don't go lower than waterlevel
+				test_y = math.max(hmap[hm_i], waterlevel)
 				-- test again for x-pos one node "inward"
 				if (math.abs(test_z - endz) < (slices_left / road_width)) and
 					(math.abs(test_y - endy) < slices_left) and
@@ -1874,27 +1880,26 @@ function makeroadcross(minp, maxp, seed)
 					if match_s and (d_s <= d_o) and (d_s <= d_i) then
 						z = prev_z
 						hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
-						y = math.max(hmap[hm_i], road_base_elevation)
+						y = math.max(hmap[hm_i], waterlevel)
 					end
 					
 					-- if "outwards" is closest to endx
 					if match_o and (d_o < d_s) and (d_o < d_i) then
 						z = prev_z + pref_dir_z
 						hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
-						y = math.max(hmap[hm_i], road_base_elevation)
+						y = math.max(hmap[hm_i], waterlevel)
 					end
 					
 						-- if "inwards" is closest to endx
 					if match_i and (d_i < d_s) and (d_i < d_s) then
 						z = prev_z - pref_dir_z
 						hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
-						y = math.max(hmap[hm_i], road_base_elevation)
+						y = math.max(hmap[hm_i], waterlevel)
 					end
 					rtype = 1
 				else
 				-- no valid pos on surface found, tunneling/bridging instead
 
--- xxx --
 				
 					-- set z-pos as close as possible to endz
 					if ( prev_z < (endz - math.floor(((endz - startz) / (endx - startx)) * slices_left)) ) then	
@@ -1910,7 +1915,8 @@ function makeroadcross(minp, maxp, seed)
 					hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
 					if ( (prev_y > hmap[hm_i]) or 
 					( minetest.get_node({x=x,y=prev_y,z=z}).name == "air" ) ) and
-					( (math.abs(prev_y - endy) + 1) < slices_left ) then 
+					( (math.abs(prev_y - endy) + 1) < slices_left ) and
+					(math.abs(prev_y - road_base_elevation) < (slices_left + 1)) then 
 						y = prev_y - 1
 					else 
 					
@@ -1924,8 +1930,8 @@ function makeroadcross(minp, maxp, seed)
 							y = prev_y
 						end
 					end
-					-- make shure y is not below road base elevation
-					y = math.max(y, road_base_elevation)	
+					-- make shure y is not below waterlevel
+					y = math.max(y, waterlevel)	
 					rtype = 2
 				end
 				

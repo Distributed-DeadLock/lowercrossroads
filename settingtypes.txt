@@ -10,7 +10,7 @@ lowercrossroads.sinfactor (The road wobble) int 62 40 10000
 # the result of sin(x-pos / sinfactor) is multiplied by this
 # the bigger the value, the bigger the wobble
 # values bigger than (chunksize/2)-roadwith will break the mod. 20 is a safe value
-lowercrossroads.sinspread (The spread of the road wobble) int 30 2 40
+lowercrossroads.sinspread (The spread of the road wobble) int 27 2 27
 
 # affects the rareness of house generation
 # setting this to 0 will create houses one the ground
@@ -22,3 +22,7 @@ lowercrossroads.house_rareness (Roadside-house rareness) int 0 0 11
 # even if the road is currently underground
 # if set to 0, trees are only cleared if neccesary
 lowercrossroads.excessive_clearing (Excessive tree-clearing) int 0 0 1
+
+# road base elevation
+# in blocks above sea-level
+lowercrossroads.roadelevation (road base elevation above sealevel) int 0 0 20
