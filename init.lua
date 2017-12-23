@@ -30,10 +30,11 @@ local house_rareness = tonumber(minetest.setting_get("lowercrossroads.house_rare
 local excessive_clearing = tonumber(minetest.setting_get("lowercrossroads.excessive_clearing")) or 0
 -- road base elevation
 -- in blocks above sea-level
-local elevation_offset = (minetest.setting_get("lowercrossroads.roadelevation")) or 0
+local elevation_offset = tonumber(minetest.setting_get("lowercrossroads.roadelevation")) or 0
 -- don't place on deep water
 -- 1 to place --- 0 to not place
-local water_roads = (minetest.setting_get("lowercrossroads.waterroads")) or 1
+local water_roads = tonumber(minetest.setting_get("lowercrossroads.waterroads")) or 1
+
 
 -- the material the road is build of
 --- main material
@@ -897,7 +898,7 @@ function makeroadZ(minp, maxp, seed)
 			--  height is flat or only 1 node difference and
 			--  height does not exceed the height-limit
 			if (math.abs(test_x - endx) < (slices_left / road_width)) and
-				(math.abs(test_y - road_base_elevation) < slices_left) and
+				(math.abs(test_y - road_base_elevation) < (slices_left - 1)) and
 				(math.abs(test_y - prev_y) < 2) and
 				(test_y < maxy) then
 				match_s = true
@@ -913,7 +914,7 @@ function makeroadZ(minp, maxp, seed)
 			test_y = math.max(hmap[hm_i], waterlevel)
 			-- test again for x-pos one node "outward"
 			if (math.abs(test_x - endx) < (slices_left / road_width)) and
-				(math.abs(test_y - road_base_elevation) < slices_left) and
+				(math.abs(test_y - road_base_elevation) < (slices_left - 1)) and
 				(math.abs(test_y - prev_y) < 2) and
 				(test_y < maxy) then
 				match_o = true
@@ -929,7 +930,7 @@ function makeroadZ(minp, maxp, seed)
 			test_y = math.max(hmap[hm_i], waterlevel)
 			-- test again for x-pos one node "inward"
 			if (math.abs(test_x - endx) < (slices_left / road_width)) and
-				(math.abs(test_y - road_base_elevation) < slices_left) and
+				(math.abs(test_y - road_base_elevation) < (slices_left - 1)) and
 				(math.abs(test_y - prev_y) < 2) and
 				(test_y < maxy) then
 				match_i = true
@@ -978,12 +979,15 @@ function makeroadZ(minp, maxp, seed)
 				hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
 				if (((prev_y > hmap[hm_i]) or 
 				( minetest.get_node({x=x,y=prev_y,z=z}).name == "air" )) and
-				 (math.abs(prev_y - road_base_elevation) < (slices_left + 1))) then 
+				 (math.abs(prev_y - road_base_elevation) < (slices_left - 1))) then 
 					y = prev_y - 1
 				else 
 				
 					-- else set to closest to elevation-sin-line
 					test_y = math.floor(math.sin(math.pi * ( (z - minp.z) / chunksizeinnodes ) ) * ((maxy - road_base_elevation) / 2)) + road_base_elevation
+					if (test_y < road_base_elevation) then
+						test_y = (test_y + 1)
+					end
 					if ( prev_y == test_y) then
 						y = prev_y
 					elseif (prev_y > test_y) then
@@ -999,8 +1003,10 @@ function makeroadZ(minp, maxp, seed)
 			
 		end	
 
-		if (( minetest.get_node({x=x,y=(waterlevel),z=z}).name ~= "default:water_source" ) or
-			  (water_roads == 1)) then
+		-- don't build on water, if not allowed
+		if ((water_roads == 1) or 
+			((minetest.get_node({x=x,y=(waterlevel),z=z}).name ~= "default:water_source") or
+			(minetest.get_node({x=x,y=(waterlevel),z=math.min((z+1),maxp.z)}).name ~= ("default:water_source" or "ignore")))) then
 			-- get heat at current pos
 			hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
 			local lheat = heatmap[hm_i]
@@ -1207,7 +1213,7 @@ function makeroadX(minp, maxp, seed)
 			--  height is flat or only 1 node difference and
 			--  height does not exceed the height-limit
 			if (math.abs(test_z - endz) < (slices_left / road_width)) and
-				(math.abs(test_y - road_base_elevation) < slices_left) and
+				(math.abs(test_y - road_base_elevation) < (slices_left - 1)) and
 				(math.abs(test_y - prev_y) < 2) and
 				(test_y < maxy) then
 				match_s = true
@@ -1223,7 +1229,7 @@ function makeroadX(minp, maxp, seed)
 			test_y = math.max(hmap[hm_i], waterlevel)
 			-- test again for z-pos one node "outward"
 			if (math.abs(test_z - endz) < (slices_left / road_width)) and
-				(math.abs(test_y - road_base_elevation) < slices_left) and
+				(math.abs(test_y - road_base_elevation) < (slices_left - 1)) and
 				(math.abs(test_y - prev_y) < 2) and
 				(test_y < maxy) then
 				match_o = true
@@ -1239,7 +1245,7 @@ function makeroadX(minp, maxp, seed)
 			test_y = math.max(hmap[hm_i], waterlevel)
 			-- test again for z-pos one node "inward"
 			if (math.abs(test_z - endz) < (slices_left / road_width)) and
-				(math.abs(test_y - road_base_elevation) < slices_left) and
+				(math.abs(test_y - road_base_elevation) < (slices_left - 1)) and
 				(math.abs(test_y - prev_y) < 2) and
 				(test_y < maxy) then
 				match_i = true
@@ -1288,12 +1294,15 @@ function makeroadX(minp, maxp, seed)
 				hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
 				if (((prev_y > hmap[hm_i]) or 
 				( minetest.get_node({x=x,y=prev_y,z=z}).name == "air" )) and
-				 (math.abs(prev_y - road_base_elevation) < (slices_left + 1))) then 
+				 (math.abs(prev_y - road_base_elevation) < (slices_left - 1))) then 
 					y = prev_y - 1
 				else 
 				
 					-- else set to closest to elevation-sin-line
 					test_y = math.floor(math.sin(math.pi * ( (x - minp.x) / chunksizeinnodes ) ) * ((maxy - road_base_elevation) / 2)) + road_base_elevation
+					if (test_y < road_base_elevation) then
+						test_y = (test_y + 1)
+					end
 					if ( prev_y == test_y) then
 						y = prev_y
 					elseif (prev_y > test_y) then
@@ -1309,9 +1318,10 @@ function makeroadX(minp, maxp, seed)
 			
 		end	
 
-		
-		if (( minetest.get_node({x=x,y=(waterlevel),z=z}).name ~= "default:water_source" ) or
-			  (water_roads == 1)) then
+		-- don't build on water, if not allowed
+		if ((water_roads == 1) or 
+			((minetest.get_node({x=x,y=(waterlevel),z=z}).name ~= "default:water_source") or
+			(minetest.get_node({x=math.min((x+1),maxp.x),y=(waterlevel),z=z}).name ~= ("default:water_source" or "ignore")))) then
 			-- get heat at current pos
 			hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
 			local lheat = heatmap[hm_i]
@@ -1534,8 +1544,12 @@ function makeroadcross(minp, maxp, seed)
 			schem_intersect = t4_intersect
 		end
 	--place intersection
-	if (( minetest.get_node({x=intersectx,y=(waterlevel),z=intersectz}).name ~= "default:water_source" ) or
-			  (water_roads == 1)) then
+	-- don't build on water, if not allowed
+	if ((water_roads == 1) or
+		((minetest.get_node({x=(intersectx - 3),y=(waterlevel),z=intersectz}).name ~= "default:water_source") or
+		(minetest.get_node({x=(intersectx + 3),y=(waterlevel),z=intersectz}).name ~= "default:water_source") or
+		(minetest.get_node({x=intersectx,y=(waterlevel),z=(intersectz - 3)}).name ~= "default:water_source") or
+		(minetest.get_node({x=intersectx,y=(waterlevel),z=(intersectz + 3)}).name ~= "default:water_source"))) then
 		minetest.place_schematic_on_vmanip(voxman_o,{ x = (intersectx - math.floor(road_width/2) - 2) , y = (intersecty - 1) , z = (intersectz - math.floor(road_width/2) - 2) }, schem_intersect, 0, nil, true)
 	end
 	
@@ -1591,7 +1605,7 @@ function makeroadcross(minp, maxp, seed)
 				--  height is flat or only 1 node difference and
 				--  height does not exceed the height-limit
 				if (math.abs(test_x - endx) < (slices_left / road_width)) and
-					(math.abs(test_y - endy) < slices_left) and
+					(math.abs(test_y - endy) < (slices_left - 1)) and
 					(math.abs(test_y - prev_y) < 2) and
 					(test_y < maxy) then
 					match_s = true
@@ -1607,7 +1621,7 @@ function makeroadcross(minp, maxp, seed)
 				test_y = math.max(hmap[hm_i], waterlevel)
 				-- test again for x-pos one node "outward"
 				if (math.abs(test_x - endx) < (slices_left / road_width)) and
-					(math.abs(test_y - endy) < slices_left) and
+					(math.abs(test_y - endy) < (slices_left - 1)) and
 					(math.abs(test_y - prev_y) < 2) and
 					(test_y < maxy) then
 					match_o = true
@@ -1623,7 +1637,7 @@ function makeroadcross(minp, maxp, seed)
 				test_y = math.max(hmap[hm_i], waterlevel)
 				-- test again for x-pos one node "inward"
 				if (math.abs(test_x - endx) < (slices_left / road_width)) and
-					(math.abs(test_y - endy) < slices_left) and
+					(math.abs(test_y - endy) < (slices_left - 1)) and
 					(math.abs(test_y - prev_y) < 2) and
 					(test_y < maxy) then
 					match_i = true
@@ -1674,12 +1688,13 @@ function makeroadcross(minp, maxp, seed)
 					if ( (prev_y > hmap[hm_i]) or 
 					( minetest.get_node({x=x,y=prev_y,z=z}).name == "air" ) ) and
 					( (math.abs(prev_y - endy) + 1) < slices_left ) and
-					(math.abs(prev_y - road_base_elevation) < (slices_left + 1)) then
+					(math.abs(prev_y - road_base_elevation) < (slices_left - 1)) then
 						y = prev_y - 1
 					else 
 					
 						-- else set to closest to target elevation
 						test_y = endy
+
 						if ( prev_y < test_y) then
 							y = prev_y + 1
 						elseif (prev_y > (test_y + slices_left)) then
@@ -1696,8 +1711,10 @@ function makeroadcross(minp, maxp, seed)
 				
 			end	
 
-			if (( minetest.get_node({x=x,y=(waterlevel),z=z}).name ~= "default:water_source" ) or
-			  (water_roads == 1)) then
+			-- don't build on water, if not allowed
+			if ((water_roads == 1) or 
+				((minetest.get_node({x=x,y=(waterlevel),z=z}).name ~= "default:water_source") or
+				(minetest.get_node({x=x,y=(waterlevel),z=math.min((z+1),maxp.z)}).name ~= ("default:water_source" or "ignore")))) then
 				-- get heat at current pos
 				hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
 				local lheat = heatmap[hm_i]
@@ -1849,7 +1866,7 @@ function makeroadcross(minp, maxp, seed)
 				--  height is flat or only 1 node difference and
 				--  height does not exceed the height-limit
 				if (math.abs(test_z - endz) < (slices_left / road_width)) and
-					(math.abs(test_y - endy) < slices_left) and
+					(math.abs(test_y - endy) < (slices_left - 1)) and
 					(math.abs(test_y - prev_y) < 2) and
 					(test_y < maxy) then
 					match_s = true
@@ -1865,7 +1882,7 @@ function makeroadcross(minp, maxp, seed)
 				test_y = math.max(hmap[hm_i], waterlevel)
 				-- test again for x-pos one node "outward"
 				if (math.abs(test_z - endz) < (slices_left / road_width)) and
-					(math.abs(test_y - endy) < slices_left) and
+					(math.abs(test_y - endy) < (slices_left - 1)) and
 					(math.abs(test_y - prev_y) < 2) and
 					(test_y < maxy) then
 					match_o = true
@@ -1881,7 +1898,7 @@ function makeroadcross(minp, maxp, seed)
 				test_y = math.max(hmap[hm_i], waterlevel)
 				-- test again for x-pos one node "inward"
 				if (math.abs(test_z - endz) < (slices_left / road_width)) and
-					(math.abs(test_y - endy) < slices_left) and
+					(math.abs(test_y - endy) < (slices_left - 1)) and
 					(math.abs(test_y - prev_y) < 2) and
 					(test_y < maxy) then
 					match_i = true
@@ -1932,12 +1949,14 @@ function makeroadcross(minp, maxp, seed)
 					if ( (prev_y > hmap[hm_i]) or 
 					( minetest.get_node({x=x,y=prev_y,z=z}).name == "air" ) ) and
 					( (math.abs(prev_y - endy) + 1) < slices_left ) and
-					(math.abs(prev_y - road_base_elevation) < (slices_left + 1)) then 
+					(math.abs(prev_y - road_base_elevation) < (slices_left - 1)) then 
 						y = prev_y - 1
 					else 
 					
 						-- else set to closest to base-level
 						test_y = endy
+
+
 						if ( prev_y < test_y) then
 							y = prev_y + 1
 						elseif (prev_y > (test_y + slices_left)) then
@@ -1953,8 +1972,10 @@ function makeroadcross(minp, maxp, seed)
 				
 			end	
 
-			if (( minetest.get_node({x=x,y=(waterlevel),z=z}).name ~= "default:water_source" ) or
-			  (water_roads == 1)) then
+		-- don't build on water, if not allowed	
+		if ((water_roads == 1) or 
+			((minetest.get_node({x=x,y=(waterlevel),z=z}).name ~= "default:water_source") or
+			(minetest.get_node({x=math.min((x+1),maxp.x),y=(waterlevel),z=z}).name ~= ("default:water_source" or "ignore")))) then
 				-- get heat at current pos
 				hm_i = (x - minp.x + 1) + (((z - minp.z)) * chunksizeinnodes)
 				local lheat = heatmap[hm_i]
